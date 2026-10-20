@@ -114,6 +114,7 @@ export class SerialLink {
     void this.pump();
     await this.idle();
     this.emit("info", `${this.label} open at 4800 8N2. TX held low.`);
+    if (port.chipWarning) this.emit("info", port.chipWarning);
     return this.label;
   }
 

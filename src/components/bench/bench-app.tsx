@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCopy, Download } from "lucide-react";
 import { BatteriesPanel } from "@/components/bench/batteries-panel";
+import { DebugPanel } from "@/components/bench/debug-panel";
 import { HealthPanel } from "@/components/bench/health-panel";
 import { RegisterPanel } from "@/components/bench/register-panel";
 import { SetupPanel } from "@/components/bench/setup-panel";
@@ -36,7 +37,7 @@ import { SerialLink, type TraceLine } from "@/lib/m18/port";
 import { BENCH_INDEXES, readMapped, type Progress } from "@/lib/m18/session";
 import type { ConnectMode } from "@/lib/m18/transport";
 
-type Tab = "health" | "batteries" | "registers" | "trace" | "setup";
+type Tab = "health" | "batteries" | "registers" | "trace" | "setup" | "debug";
 type Busy = "connect" | "health" | "full" | "sim" | "note" | "line";
 
 type View =
@@ -49,6 +50,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "registers", label: "Registers" },
   { id: "trace", label: "Trace" },
   { id: "setup", label: "Setup" },
+  { id: "debug", label: "Debug" },
 ];
 
 function initialView(): View {
@@ -531,6 +533,7 @@ export function BenchApp() {
             onWriteNote={(note) => void writeNote(note)}
           />
         ) : null}
+        {tab === "debug" ? <DebugPanel /> : null}
 
         <p className="text-xs text-muted">
           Read at {report ? report.readAtLabel : "—"} · Windows, Android, and iOS · unofficial M18 UART bench

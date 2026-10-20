@@ -59,7 +59,7 @@ export function SetupPanel({
           </QuietButton>
         </div>
         <p className="mt-2 text-sm text-muted">
-          Use WebUSB when the serial chooser does not list the cable. On Windows, if the adapter already has a COM port, Connect USB-C is the one that works.
+          Use WebUSB when the serial chooser does not list the cable. On Windows, if the adapter already has a COM port, Connect USB-C is the one that works. FT232 variant, latency, and the chip communication test are on Debug.
         </p>
       </section>
 

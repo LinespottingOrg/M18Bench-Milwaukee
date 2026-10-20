@@ -17,6 +17,8 @@ The wire protocol is the community map in [mnh-jansson/m18-protocol](https://git
 
 Sample packs are on the health screen until a pack is connected: Healthy XC 5.0, Tired HO 8.0, Sagging Forge 12.0.
 
+The Debug tab names the FT232 variant (R, H, 2232H, 4232H, 2232C, B, BM, FT-X), sets the baud clock, and runs a communication test. On iPhone the test stops at the missing port. On Windows and Android it opens the cable and checks reset, 4800 8N2, the latency timer, modem status, a read-only EEPROM word, and break. Nothing is written to EEPROM.
+
 ## iOS
 
 Identity is pinned in `PRODUCT.yaml`. The phone build is a local Xcode archive of this web bench. TestFlight internal only. USB diagnosis stays on Windows or Android.

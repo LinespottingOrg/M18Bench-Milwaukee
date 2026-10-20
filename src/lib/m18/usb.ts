@@ -1,4 +1,15 @@
 import { BenchError } from "./bytes.ts";
+import {
+  bcdDeviceFromUsb,
+  ftdiBaudWords,
+  hex4,
+  identifyFtdi,
+  loadChipSettings,
+  resolveFtVariant,
+  type ChipSettings,
+} from "./ftdi.ts";
+
+export { ftdiBaudWords };
 
 interface WebUsbFilter {
   vendorId?: number;
@@ -29,6 +40,10 @@ interface WebUsbInterface {
 interface WebUsbDevice {
   vendorId: number;
   productId: number;
+  productName?: string | null;
+  deviceVersionMajor?: number;
+  deviceVersionMinor?: number;
+  deviceVersionSubminor?: number;
   configuration: { interfaces: WebUsbInterface[] } | null;
   configurations: { configurationValue: number }[];
   open(): Promise<void>;
@@ -54,6 +69,7 @@ export interface SerialPortLike {
   setSignals: (signals: { break?: boolean; dataTerminalReady?: boolean }) => Promise<void>;
   getInfo?: () => { usbVendorId?: number; usbProductId?: number };
   transportName?: string;
+  chipWarning?: string | null;
 }
 
 const USB_FILTERS: WebUsbFilter[] = [
@@ -89,10 +105,13 @@ export function ch340BaudIndex(baud: number): { a: number; b: number } {
   return { a, b };
 }
 
-/** FT232 integer divisor at a 3 MHz baud clock. 4800 baud → 625. */
-export function ftdiBaudWords(baud: number): { value: number; index: number } {
-  const divisor = Math.max(1, Math.round(3_000_000 / Math.max(1, baud)));
-  return { value: divisor & 0xffff, index: (divisor >> 16) & 0xffff };
+export type ProbeStatus = "pass" | "fail" | "warn" | "skip";
+
+export interface ProbeStep {
+  id: string;
+  name: string;
+  status: ProbeStatus;
+  detail: string;
 }
 
 export async function openWebUsb(): Promise<SerialPortLike> {
@@ -121,6 +140,8 @@ class UsbCPort implements SerialPortLike {
   private extraIface: number | null = null;
   private dtr = false;
   private ftdiData = 0x1008;
+  private channel = 0;
+  chipWarning: string | null = null;
 
   constructor(device: WebUsbDevice) {
     this.device = device;
@@ -247,11 +268,36 @@ class UsbCPort implements SerialPortLike {
       return;
     }
     if (this.kind === "ftdi") {
-      await this.vendorOut("device", 0x00, 0, this.iface);
-      const words = ftdiBaudWords(baud);
-      await this.vendorOut("device", 0x03, words.value, ((this.iface << 8) | words.index) & 0xffff);
+      const settings = loadChipSettings();
+      const identity = identifyFtdi({
+        vendorId: this.device.vendorId,
+        productId: this.device.productId,
+        bcdDevice: bcdDeviceFromUsb(this.device.deviceVersionMajor, this.device.deviceVersionMinor, this.device.deviceVersionSubminor),
+        productName: this.device.productName,
+      });
+      const resolved = resolveFtVariant(settings, identity);
+      const variant = resolved.variant;
+      if (settings.channel > variant.channels - 1) {
+        throw new BenchError(
+          `${variant.label} stops at channel ${["A", "B", "C", "D"][variant.channels - 1]}. Pick that channel on Debug.`,
+          "ftdi",
+        );
+      }
+      this.channel = settings.channel;
+      this.transportName = `USB-C ${variant.label}`;
+      await this.vendorOut("device", 0x00, 0, this.channel);
+      const words = ftdiBaudWords(baud, variant.clockHz);
+      await this.vendorOut("device", 0x03, words.value, ((this.channel << 8) | words.index) & 0xffff);
       this.ftdiData = ftdiDataBits(dataBits, stopBits, parity);
-      await this.vendorOut("device", 0x04, this.ftdiData, this.iface);
+      await this.vendorOut("device", 0x04, this.ftdiData, this.channel);
+      await this.vendorOut("device", 0x09, settings.latencyMs, this.channel);
+      const check = await this.readLatency(settings);
+      const notes = [...resolved.warnings];
+      if (check) notes.push(check);
+      this.chipWarning = notes.length ? notes.join(" ") : null;
+      if (settings.probeOnConnect && check) {
+        throw new BenchError(`${variant.label}: ${check}`, "ftdi");
+      }
       return;
     }
     await this.vendorOut("device", 0x20, 0, 0, lineCoding(baud, dataBits, stopBits, parity));
@@ -275,15 +321,32 @@ class UsbCPort implements SerialPortLike {
   }
 
   private async ftdiSignals(wantBreak: boolean | undefined) {
-    await this.vendorOut("device", 0x01, this.dtr ? 0x0101 : 0x0100, this.iface);
+    await this.vendorOut("device", 0x01, this.dtr ? 0x0101 : 0x0100, this.channel);
     if (wantBreak != null) {
-      await this.vendorOut("device", 0x04, this.ftdiData | (wantBreak ? 0x4000 : 0), this.iface);
+      await this.vendorOut("device", 0x04, this.ftdiData | (wantBreak ? 0x4000 : 0), this.channel);
     }
   }
 
   private async plSignals(wantBreak: boolean | undefined) {
     await this.vendorOut("device", 0x22, this.dtr ? 1 : 0, 0);
     if (wantBreak != null) await this.vendorOut("device", 0x23, wantBreak ? 0xffff : 0, 0);
+  }
+
+  private async readLatency(settings: ChipSettings): Promise<string | null> {
+    try {
+      const result = await this.device.controlTransferIn(
+        { requestType: "vendor", recipient: "device", request: 0x0a, value: 0, index: this.channel },
+        1,
+      );
+      const got = result.data?.getUint8(0);
+      if (got == null) return "The latency read came back empty. Many fake FT232 chips ignore that request.";
+      if (got !== settings.latencyMs) {
+        return `Latency timer wrote ${settings.latencyMs} ms and the chip read ${got} ms. A clone, or the wrong channel.`;
+      }
+      return null;
+    } catch {
+      return "The chip did not answer the latency read. The cable may be a clone that only speaks COM-port requests.";
+    }
   }
 
   private vendorOut(
@@ -400,6 +463,256 @@ function payloadBytes(kind: Chip, data: DataView | null | undefined): Uint8Array
   const strip = kind === "ftdi" ? 2 : 0;
   if (data.byteLength <= strip) return null;
   return new Uint8Array(data.buffer.slice(data.byteOffset + strip, data.byteOffset + data.byteLength));
+}
+
+export async function probeFtdiUsb(settings: ChipSettings): Promise<ProbeStep[]> {
+  const usb = typeof navigator === "undefined" ? undefined : (navigator as Navigator & { usb?: WebUsbApi }).usb;
+  if (!usb) throw new BenchError("This browser has no WebUSB.", "noserial");
+  let device: WebUsbDevice;
+  try {
+    device = await usb.requestDevice({ filters: [{ vendorId: 0x0403 }] });
+  } catch (error) {
+    throw mapUsbError(error);
+  }
+  const steps: ProbeStep[] = [];
+  try {
+    await device.open();
+    if (!device.configuration) {
+      await device.selectConfiguration(device.configurations[0]?.configurationValue ?? 1);
+    }
+    const identity = identifyFtdi({
+      vendorId: device.vendorId,
+      productId: device.productId,
+      bcdDevice: bcdDeviceFromUsb(device.deviceVersionMajor, device.deviceVersionMinor, device.deviceVersionSubminor),
+      productName: device.productName,
+    });
+    const idText = `${hex4(device.vendorId)}:${hex4(device.productId)}${identity.bcdDevice == null ? "" : ` bcd ${hex4(identity.bcdDevice)}`}`;
+    steps.push({
+      id: "identify",
+      name: "Identify",
+      status: identity.ftdi ? (identity.confidence === "bcd" && identity.warnings.length === 0 ? "pass" : "warn") : "fail",
+      detail: identity.ftdi
+        ? `${identity.variant?.label ?? "FTDI"} ${idText}. ${identity.warnings[0] ?? identity.variant?.detail ?? ""}`.trim()
+        : (identity.warnings[0] ?? `${idText} is not FTDI.`),
+    });
+    if (!identity.ftdi || !identity.variant) return steps;
+
+    let variant;
+    try {
+      variant = resolveFtVariant(settings, identity).variant;
+    } catch (error) {
+      steps.push({
+        id: "override",
+        name: "Variant override",
+        status: "fail",
+        detail: error instanceof Error ? error.message : "The override does not match the chip.",
+      });
+      return steps;
+    }
+    if (settings.channel > variant.channels - 1) {
+      steps.push({
+        id: "channel",
+        name: "Channel",
+        status: "fail",
+        detail: `${variant.label} has channel ${channelName(variant.channels - 1)} as its last channel. ${channelName(settings.channel)} is not on this chip.`,
+      });
+      return steps;
+    }
+    const channel = settings.channel;
+    const plan = planDevice(device);
+    await device.claimInterface(plan.iface);
+    if (plan.extraIface != null) await device.claimInterface(plan.extraIface);
+
+    const vendor = (request: number, value: number, index: number, data?: BufferSource) =>
+      device.controlTransferOut(
+        { requestType: "vendor", recipient: "device", request, value: value & 0xffff, index: index & 0xffff },
+        data,
+      );
+    const vendorIn = async (request: number, index: number, length: number) => {
+      const result = await device.controlTransferIn(
+        { requestType: "vendor", recipient: "device", request, value: 0, index: index & 0xffff },
+        length,
+      );
+      const data = result.data;
+      if (!data || data.byteLength === 0) return new Uint8Array();
+      return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+    };
+
+    await vendor(0x00, 0, channel);
+    steps.push({ id: "reset", name: "Reset", status: "pass", detail: "The chip accepted the FTDI reset on this channel." });
+
+    const words = ftdiBaudWords(4800, variant.clockHz);
+    await vendor(0x03, words.value, ((channel << 8) | words.index) & 0xffff);
+    steps.push({
+      id: "baud",
+      name: "Set 4800 baud",
+      status: "pass",
+      detail: `${variant.label} took divisor ${hex4(words.value)} from its ${variant.clockHz / 1_000_000} MHz clock.`,
+    });
+
+    const line = ftdiDataBits(8, 2, "none");
+    await vendor(0x04, line, channel);
+    steps.push({ id: "linecode", name: "Set 8N2", status: "pass", detail: "Data bits, parity, and two stop bits were accepted. That is the M18 frame." });
+
+    await vendor(0x09, settings.latencyMs, channel);
+    try {
+      const latency = await vendorIn(0x0a, channel, 1);
+      if (!latency.length) {
+        steps.push({
+          id: "latency",
+          name: "Latency timer",
+          status: "fail",
+          detail: "The latency read was empty. The chip is not answering vendor request 0x0A.",
+        });
+      } else if (latency[0] !== settings.latencyMs) {
+        steps.push({
+          id: "latency",
+          name: "Latency timer",
+          status: "fail",
+          detail: `Wrote ${settings.latencyMs} ms and read ${latency[0]} ms. Wrong channel, or a clone that ignores the timer.`,
+        });
+      } else {
+        steps.push({
+          id: "latency",
+          name: "Latency timer",
+          status: "pass",
+          detail: `Read back ${latency[0]} ms. The chip is answering vendor requests.`,
+        });
+      }
+    } catch {
+      steps.push({
+        id: "latency",
+        name: "Latency timer",
+        status: "fail",
+        detail: "The latency read failed. Communication to the FT232 registers stopped after baud was set.",
+      });
+    }
+
+    try {
+      const modem = await vendorIn(0x05, channel, 2);
+      steps.push({
+        id: "modem",
+        name: "Modem status",
+        status: modem.length >= 2 ? "pass" : "fail",
+        detail:
+          modem.length >= 2
+            ? `Status bytes ${hex4(modem[0]).slice(2)} ${hex4(modem[1]).slice(2)}. The chip returned its line flags.`
+            : "The modem-status read was short. The bulk pipe may be up while vendor reads are not.",
+      });
+    } catch {
+      steps.push({
+        id: "modem",
+        name: "Modem status",
+        status: "fail",
+        detail: "The chip refused the modem-status read.",
+      });
+    }
+
+    try {
+      const word = await vendorIn(0x90, 0, 2);
+      steps.push({
+        id: "eeprom",
+        name: "EEPROM read",
+        status: word.length === 2 ? "pass" : "warn",
+        detail:
+          word.length === 2
+            ? `Word 0 is ${hex4(word[0] | (word[1] << 8))}. Read only. Nothing was written, so a counterfeit is not bricked.`
+            : "EEPROM word 0 came back empty. Some clones have no EEPROM. The UART may still work.",
+      });
+    } catch {
+      steps.push({
+        id: "eeprom",
+        name: "EEPROM read",
+        status: "warn",
+        detail: "EEPROM read failed. Common on fake FT232 parts. The test did not write anything.",
+      });
+    }
+
+    try {
+      await vendor(0x01, 0x0101, channel);
+      await vendor(0x04, line | 0x4000, channel);
+      await vendor(0x04, line, channel);
+      await vendor(0x01, 0x0100, channel);
+      steps.push({
+        id: "break",
+        name: "Break and DTR",
+        status: "pass",
+        detail: "Break and DTR were set and released. That is the M18 idle line.",
+      });
+    } catch {
+      steps.push({
+        id: "break",
+        name: "Break and DTR",
+        status: "fail",
+        detail: "The chip accepted baud but refused break or DTR. The pack line cannot be held low through this cable.",
+      });
+    }
+
+    if (settings.expectLoopback) {
+      steps.push(await usbEcho(device, plan));
+    } else {
+      steps.push({
+        id: "echo",
+        name: "TX to RX echo",
+        status: "skip",
+        detail: "Turn on the jumper option and tie adapter TX to RX if you want a wire test.",
+      });
+    }
+    return steps;
+  } catch (error) {
+    steps.push({
+      id: "open",
+      name: "Open chip",
+      status: "fail",
+      detail: mapUsbError(error).message,
+    });
+    return steps;
+  } finally {
+    try {
+      await device.close();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function usbEcho(device: WebUsbDevice, plan: EndpointPlan): Promise<ProbeStep> {
+  try {
+    await device.transferOut(plan.outEp, new Uint8Array([0x55]));
+    const incoming = device.transferIn(plan.inEp, Math.max(plan.packet, 64));
+    const hit = await Promise.race([incoming.then((result) => result.data ?? null), wait(400).then(() => null)]);
+    if (!hit || hit.byteLength <= 2) {
+      return {
+        id: "echo",
+        name: "TX to RX echo",
+        status: "fail",
+        detail: "Wrote 55 and nothing came back. Jumper TX to RX, or the pins are not moving.",
+      };
+    }
+    const bytes = new Uint8Array(hit.buffer.slice(hit.byteOffset, hit.byteOffset + hit.byteLength));
+    const echoed = Array.from(bytes.slice(2)).includes(0x55);
+    return {
+      id: "echo",
+      name: "TX to RX echo",
+      status: echoed ? "pass" : "warn",
+      detail: echoed ? "Read 55 back after the FTDI status bytes. TX and RX are talking." : "Bytes came back, but 55 was not in them.",
+    };
+  } catch (error) {
+    return {
+      id: "echo",
+      name: "TX to RX echo",
+      status: "fail",
+      detail: error instanceof Error ? error.message : "The echo transfer failed.",
+    };
+  }
+}
+
+function channelName(channel: number): string {
+  return ["A", "B", "C", "D"][channel] ?? String(channel);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mapUsbError(error: unknown): Error {
