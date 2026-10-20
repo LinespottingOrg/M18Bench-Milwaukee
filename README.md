@@ -19,9 +19,14 @@ Sample packs are on the health screen until a pack is connected: Healthy XC 5.0,
 
 The Debug tab names the FT232 variant (R, H, 2232H, 4232H, 2232C, B, BM, FT-X), sets the baud clock, and runs a communication test. On iPhone the test stops at the missing port. On Windows and Android it opens the cable and checks reset, 4800 8N2, the latency timer, modem status, a read-only EEPROM word, and break. Nothing is written to EEPROM.
 
-## iOS
+## iOS and Play
 
-Identity is pinned in `PRODUCT.yaml`. The phone build is a local Xcode archive of this web bench. TestFlight internal only. USB diagnosis stays on Windows or Android.
+Both phone apps are submitted and waiting for review.
+
+- **iOS.** App Store review. Bundle id `app.m18bench`, version 1.0.0, LineSpotting AB. Sample packs, battery names, and log import. The phone does not open the USB-C port. Debug says so.
+- **Google Play.** The Android build is in review. Chrome on the phone can open a 3.3 V USB-C serial adapter the same way Windows does.
+
+Until review finishes, the bench you can run today is this repo on Windows. Identity for the iOS build is in `PRODUCT.yaml`.
 
 ## Safety
 

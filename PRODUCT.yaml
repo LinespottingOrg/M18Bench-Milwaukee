@@ -15,12 +15,17 @@ ios:
   team: LineSpotting AB
   team_id: 5YKNC3ZF4Z
   privacy_url: https://linespotting.com/privacy-policy/
-  track: testflight-internal
-  submit_for_review: false
+  track: app-store-review
+  submit_for_review: true
+  status: waiting for review
+
+play:
+  status: waiting for review
+  note: Android build submitted to Google Play. USB-C serial in Chrome once the listing is live.
 
 platforms:
   windows: USB-C serial in Edge or Chrome. This is the diagnostic bench.
-  android: USB-C serial in Chrome. Not this release.
-  ios: Sample packs, battery names, and log import. iPhone and iPad do not expose the USB-C port to the app.
+  android: Play build submitted and waiting for review. USB-C serial in Chrome.
+  ios: App Store build submitted and waiting for review. Sample packs, battery names, and log import. The iPhone does not expose the USB-C port.
 
 protocol: https://github.com/mnh-jansson/m18-protocol
