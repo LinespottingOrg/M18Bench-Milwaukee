@@ -1,0 +1,26 @@
+name: M18 Bench
+slug: m18bench
+repo: LinespottingOrg/M18Bench-Milwaukee
+unofficial: true
+not_affiliated_with: Milwaukee Electric Tool
+
+ios:
+  bundle_id: app.m18bench
+  version: 1.0.0
+  build: 1
+  sku: m18bench-ios
+  display_name: M18 Bench
+  app_store_name: M18 Bench
+  icon_label: M18
+  team: LineSpotting AB
+  team_id: 5YKNC3ZF4Z
+  privacy_url: https://linespotting.com/privacy-policy/
+  track: testflight-internal
+  submit_for_review: false
+
+platforms:
+  windows: USB-C serial in Edge or Chrome. This is the diagnostic bench.
+  android: USB-C serial in Chrome. Not this release.
+  ios: Sample packs, battery names, and log import. iPhone and iPad do not expose the USB-C port to the app.
+
+protocol: https://github.com/mnh-jansson/m18-protocol
