@@ -11,7 +11,7 @@ npm run build
 python store\windows\assemble_app.py
 npx --yes @electron/packager store\windows\app "M18 Bench" --platform=win32 --arch=x64 --out=store\windows\build --overwrite --asar=false --executable-name=M18Bench --electron-version=33.4.11
 $layout = Get-ChildItem store\windows\build -Directory | Select-Object -First 1
-Copy-Item store\windows\Assets $layout.FullName\Assets -Recurse -Force
+Copy-Item "store\windows\Assets" (Join-Path $layout.FullName "Assets") -Recurse -Force
 $manifest = Get-Content store\windows\AppxManifest.xml -Raw
 $manifest = $manifest.Replace("CN=LineSpotting AB", $publisher)
 $manifestPath = Join-Path $layout.FullName "AppxManifest.xml"
