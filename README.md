@@ -28,6 +28,19 @@ Both phone apps are submitted and waiting for review.
 
 Until review finishes, the bench you can run today is this repo on Windows. Identity for the iOS build is in `PRODUCT.yaml`.
 
+## Microsoft Store
+
+The Store package is the same bench GUI in its own window. Icons, listing text, and the MSIX manifest are in `store/windows`. The package is not submitted yet. iOS and Play are the builds waiting on review.
+
+On a Windows PC, from the repo root:
+
+```
+$env:M18_STORE_PUBLISHER = "CN=your-partner-center-publisher"
+powershell -File store\windows\build-msix.ps1
+```
+
+That builds `store\windows\out\M18Bench-1.0.0.0-x64.msix`. Sign it with the Partner Center publisher before upload. `runFullTrust` is there so the window can open a USB serial port.
+
 ## Safety
 
 The adapter is 3.3 V UART. Releasing the line while J2 is high can increment the pack's dumb-charge counter. Do not write registers you do not mean to change.

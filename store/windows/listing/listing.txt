@@ -1,0 +1,27 @@
+Microsoft Store listing for M18 Bench
+Publisher display name: LineSpotting AB
+Identity name: LineSpottingAB.M18Bench
+Version: 1.0.0.0
+Category: Utilities & tools
+Privacy policy: https://linespotting.com/privacy-policy/
+
+Short description
+Unofficial workbench for Milwaukee M18 battery packs. Read health over a 3.3 V USB-C serial adapter. Not affiliated with Milwaukee Electric Tool.
+
+Description
+M18 Bench is a workbench for Milwaukee M18 packs. On Windows it opens a USB-C serial adapter at 4800 8N2 and reads the community register map. The same window is the health screen, the battery library, the register browser, the wire trace, the hookup guide, and the FT232 debug test.
+
+The health screen shows a verdict, cell bars, imbalance, temperature, and charge counts. You can name a pack, keep its history on this PC, and download the log as JSON or CSV. Three sample packs are built in, so the window is usable with no cable.
+
+This app is unofficial. It is not affiliated with Milwaukee Electric Tool and it is not a Milwaukee product. The wire protocol is the community map at https://github.com/mnh-jansson/m18-protocol
+
+The adapter must be 3.3 V UART. Do not connect it straight to the pack terminals. Holding the TX line high can count as a dumb charge.
+
+Screenshots
+01-health.png is the health verdict.
+02-setup.png is the hookup guide.
+03-debug.png is the FT232 communication test.
+04-batteries.png is the named-pack library.
+
+Review note
+runFullTrust is there so the window can open a USB serial port. Sample packs work with no cable and no network. The package does not write FTDI EEPROM.

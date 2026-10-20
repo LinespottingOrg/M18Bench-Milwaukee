@@ -1,0 +1,9 @@
+{
+  "name": "m18-bench",
+  "productName": "M18 Bench",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unofficial workbench for Milwaukee M18 battery packs. Not affiliated with Milwaukee Electric Tool.",
+  "author": "LineSpotting AB",
+  "main": "main.cjs"
+}

@@ -17,3 +17,6 @@ android/.gradle
 android/build
 *.ipa
 *.dSYM
+store/windows/app
+store/windows/build
+store/windows/out

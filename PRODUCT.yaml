@@ -23,8 +23,17 @@ play:
   status: waiting for review
   note: Android build submitted to Google Play. USB-C serial in Chrome once the listing is live.
 
+microsoft_store:
+  identity_name: LineSpottingAB.M18Bench
+  publisher_display_name: LineSpotting AB
+  publisher: CN=LineSpotting AB
+  version: 1.0.0.0
+  architecture: x64
+  status: package in the repo, not submitted
+  note: Replace publisher with the Partner Center identity before upload. The window is the same bench GUI.
+
 platforms:
-  windows: USB-C serial in Edge or Chrome. This is the diagnostic bench.
+  windows: Store window and Edge or Chrome. USB-C serial. The MSIX is in store/windows and is not submitted yet.
   android: Play build submitted and waiting for review. USB-C serial in Chrome.
   ios: App Store build submitted and waiting for review. Sample packs, battery names, and log import. The iPhone does not expose the USB-C port.
 
