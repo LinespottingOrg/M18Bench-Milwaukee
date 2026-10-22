@@ -30,7 +30,7 @@ Until review finishes, the bench you can run today is this repo on Windows. Iden
 
 ## Microsoft Store
 
-The Store package is the same bench GUI in its own window. Icons, listing text, and the MSIX manifest are in `store/windows`. The package is not submitted yet. iOS and Play are the builds waiting on review.
+The Store package is the same bench GUI in its own window. Icons, listing text, and the MSIX manifest are in `store/windows`. It is published on the Microsoft Store as **M18 Battery Bench** (Store ID `9NJL1ZWN820V`): https://apps.microsoft.com/detail/9NJL1ZWN820V. Partner Center confirmed processing on 2026-10-21. iOS and Play are the builds waiting on review.
 
 On a Windows PC, from the repo root:
 
@@ -39,7 +39,7 @@ $env:M18_STORE_PUBLISHER = "CN=your-partner-center-publisher"
 powershell -File store\windows\build-msix.ps1
 ```
 
-That builds `store\windows\out\M18Bench-1.0.0.0-x64.msix`. Sign it with the Partner Center publisher before upload. `runFullTrust` is there so the window can open a USB serial port.
+That builds `store\windows\out\M18Bench-1.0.0.0-x64.msix`. `runFullTrust` is there so the window can open a USB serial port.
 
 ## Safety
 

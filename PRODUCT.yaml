@@ -29,11 +29,15 @@ microsoft_store:
   publisher: CN=LineSpotting AB
   version: 1.0.0.0
   architecture: x64
-  status: package in the repo, not submitted
-  note: Replace publisher with the Partner Center identity before upload. The window is the same bench GUI.
+  store_name: M18 Battery Bench
+  store_id: 9NJL1ZWN820V
+  listing_url: https://apps.microsoft.com/detail/9NJL1ZWN820V
+  status: published
+  processed: 2026-10-21
+  note: Partner Center confirmed processing on 2026-10-21. The window is the same bench GUI.
 
 platforms:
-  windows: Store window and Edge or Chrome. USB-C serial. The MSIX is in store/windows and is not submitted yet.
+  windows: Store window and Edge or Chrome. USB-C serial. Published on the Microsoft Store as M18 Battery Bench (9NJL1ZWN820V).
   android: Play build submitted and waiting for review. USB-C serial in Chrome.
   ios: App Store build submitted and waiting for review. Sample packs, battery names, and log import. The iPhone does not expose the USB-C port.
 
