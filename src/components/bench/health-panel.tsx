@@ -9,6 +9,10 @@ const VERDICT_LABEL: Record<HealthReport["verdict"], string> = {
   retire: "Retire",
 };
 
+function daysAgo(days: number): string {
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
+}
+
 export function HealthPanel({
   report,
   awaiting,
@@ -71,9 +75,9 @@ export function HealthPanel({
               <dt className="text-muted">Since first charge</dt>
               <dd className="font-mono">{report.daysSinceFirst == null ? "—" : `${report.daysSinceFirst} days`}</dd>
               <dt className="text-muted">Last tool use</dt>
-              <dd className="font-mono">{report.daysSinceTool == null ? "—" : `${report.daysSinceTool} days ago`}</dd>
+              <dd className="font-mono">{report.daysSinceTool == null ? "—" : daysAgo(report.daysSinceTool)}</dd>
               <dt className="text-muted">Last charge</dt>
-              <dd className="font-mono">{report.daysSinceCharge == null ? "—" : `${report.daysSinceCharge} days ago`}</dd>
+              <dd className="font-mono">{report.daysSinceCharge == null ? "—" : daysAgo(report.daysSinceCharge)}</dd>
               <dt className="text-muted">Note</dt>
               <dd className="font-mono">{report.note ?? "—"}</dd>
             </dl>
